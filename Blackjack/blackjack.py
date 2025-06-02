@@ -238,8 +238,33 @@ def jouer(solde, paquet):
 def main():
     solde = 100
     paquet = creer_paquet()
-    print("==== Welcome to Blackjack 💰 ====")
-    print("- Dealer must stand on all 17s - \n")
+    print("\n")
+    print("🎯 Blackjack Rules:\n")
+    print("1️⃣ Goal:")
+    print("   - Beat the dealer’s score without going over 21.")
+    print("   - Dealer must stand on all 17s - \n")
+    print("2️⃣ Card Dealing:")
+    print("   - Cards are dealt alternately: one to the player, one to the dealer, then one more each.")
+    print("3️⃣ Actions:")
+    print("   - (h) Hit: draw a card")
+    print("   - (s) Stand: keep your hand")
+    print("   - (d) Double: double your bet and draw only one card (available at the start only)")
+    print("4️⃣ Split:")
+    print("   - If you get two cards of the same value, you can split them into two separate hands.")
+    print("   - This requires placing a second bet equal to the first.")
+    print("5️⃣ Natural Blackjack:")
+    print("   - If you get 21 with your first two cards, you win 1.5× your bet.")
+    print("6️⃣ Dealer Rules:")
+    print("   - The dealer must draw until reaching at least 17.")
+    print("7️⃣ Winning & Payouts:")
+    print("   - Win: you get your bet back + same amount as profit")
+    print("   - Tie: your bet is returned")
+    print("   - Lose: you lose your bet\n")
+    print("Good luck! 🍀\n")
+
+    print("==== Welcome to Blackjack 💰 ==== \n")
+
+
     while solde > 0:
         solde = jouer(solde, paquet)
         print(f"💰 Current balance: {solde} points\n")
