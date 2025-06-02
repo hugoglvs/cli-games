@@ -1,17 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue May 28 15:52:40 2025
-
-@author: user
-add :
-    - Added split option
-    - Added double down option
-    - Added natural blackjack detection
-    - Improved user prompts and error handling
-    - Added shoe management to shuffle when low
-    - Improved scoring 
-    - Added multiple hands support (6 hands)
- 
+Corrections :
+- Added draw order similar to real blackjack,
+- Correction of win calculation error when splitting with two hands
 """
 
 import random
@@ -61,7 +52,7 @@ def tirer_carte(paquet):
 def demander_mise(solde):
     while True:
         try:
-            mise = int(input(f"Your balance is ${solde}.\nEnter your bet: "))
+            mise = int(input(f"Your balance is {solde} points.\nEnter your bet: "))
             if 1 <= mise <= solde:
                 print()
                 return mise
@@ -70,7 +61,7 @@ def demander_mise(solde):
             print("❌ Please enter a valid integer.\n")
 
 def proposer_split(main, solde, mise):
-    if nom_carte(main[0]) == nom_carte(main[1]) and solde >= mise * 2:
+    if nom_carte(main[0]) == nom_carte(main[1]) and solde >= mise:
         while True:
             choix = input(f"🃏 You have a pair of {nom_carte(main[0])}. Do you want to split? (y/n): ").lower()
             if choix in ['y', 'n']:
@@ -91,13 +82,17 @@ def proposer_action_initiale(main, solde, mise):
     return 'h'
 
 def jouer_main_avec_options(paquet, main, solde, mise):
-    mise_initiale = mise
+    if calculer_score(main) == 21:
+        print("✅ You have 21. No further action possible.\n")
+        return main, mise, solde
+
     choix = proposer_action_initiale(main, solde, mise)
     if choix == 'd':
-        solde -= mise
-        mise *= 2
-        main.append(tirer_carte(paquet))
-        afficher_main("You", main)
+        if solde >= mise:
+            solde -= mise  # ✅ Ne déduire qu'ici pour un double
+            mise *= 2
+            main.append(tirer_carte(paquet))
+            afficher_main("You", main)
     elif choix == 'h':
         while calculer_score(main) < 21:
             main.append(tirer_carte(paquet))
@@ -106,27 +101,62 @@ def jouer_main_avec_options(paquet, main, solde, mise):
                 break
             if input("Draw another card? (y/n): ").lower() != 'y':
                 break
+
     return main, mise, solde
 
-def resoudre_mains_multiples(mains_mises, score_banque):
-    total = 0
+def resoudre_mains_multiples2(mains_mises, score_banque):
+    gain_net = 0
     for i, (main, mise) in enumerate(mains_mises):
         score = calculer_score(main)
         print(f"🧾 Result for hand {i+1}: {score}")
         if score > 21:
-            print("💥 You lost this hand.")
-            total -= mise
+            print("❌ You lost this hand.")
+            # Rien à ajouter : la mise a déjà été déduite
         elif score_banque > 21 or score > score_banque:
             print("🎉 You win this hand!")
-            total += mise
+            gain_net += mise * 2  # ✅ retour de mise + gain
         elif score == score_banque:
             print("🤝 It's a tie on this hand.")
+            gain_net += mise  # ✅ juste remboursement de la mise
         else:
             print("❌ You lose this hand.")
-            total -= mise
+            # Rien à ajouter
         print()
-    print(f"💰 Result this round: {total:+} $\n")
-    return total
+    print(f"💰 Result this round: {gain_net:+} points\n")
+    return gain_net
+
+def resoudre_mains_multiples(mains_mises, score_banque):
+    gain_net = 0              # Somme à créditer au solde
+    gain_affiche = 0          # Pour affichage uniquement
+
+    for i, (main, mise) in enumerate(mains_mises):
+        score = calculer_score(main)
+        print(f"🧾 Result for hand {i+1}: {score}")
+
+        if score > 21:
+            print("❌ You lost this hand.")
+            # perte = -mise
+            gain_affiche -= mise
+            # gain_net reste à 0
+        elif score_banque > 21 or score > score_banque:
+            print("🎉 You win this hand!")
+            gain_net += mise * 2         # mise remboursée + gain
+            gain_affiche += mise         # gain réel
+        elif score == score_banque:
+            print("🤝 It's a tie on this hand.")
+            gain_net += mise             # remboursement seulement
+            # gain_affiche += 0
+        else:
+            print("❌ You lose this hand.")
+            gain_affiche -= mise         # perte
+
+        print()
+
+    # ✅ Affichage clair : gain réel visible, mais solde sera bien crédité correctement
+    print(f"💰 Result this round: {gain_affiche:+} points\n")
+    return gain_net
+
+
 
 def jouer(solde, paquet):
     if len(paquet) < 60:
@@ -135,17 +165,21 @@ def jouer(solde, paquet):
         paquet.extend(creer_paquet())
 
     mise = demander_mise(solde)
-    mise_initiale = mise
-    solde -= mise
+    solde -= mise  # 💰 Première mise
 
-    main_joueur = [tirer_carte(paquet), tirer_carte(paquet)]
-    main_banque = [tirer_carte(paquet), tirer_carte(paquet)]
+    #tirage dans le même ordre que au casino
+    
+    main_joueur = [tirer_carte(paquet)]
+    main_banque = [tirer_carte(paquet)]
+    main_joueur.append(tirer_carte(paquet))
+    main_banque.append(tirer_carte(paquet))
 
     afficher_main("You", main_joueur)
     print(f"Dealer has: {main_banque[0]}, [hidden card]\n")
 
     if proposer_split(main_joueur, solde, mise):
-        solde -= mise
+        solde -= mise  # 💰 Deuxième mise pour le split
+
         main1 = [main_joueur[0], tirer_carte(paquet)]
         main2 = [main_joueur[1], tirer_carte(paquet)]
 
@@ -163,13 +197,16 @@ def jouer(solde, paquet):
         afficher_main("Dealer", main_banque)
 
         score_banque = calculer_score(main_banque)
-        gain = resoudre_mains_multiples([(main1, mise1), (main2, mise2)], score_banque)
-        return max(0, solde + gain)
+        mains_mises = [(main1, mise1), (main2, mise2)]
+        gain_net = resoudre_mains_multiples(mains_mises, score_banque)
 
+        return max(0, solde + gain_net)
+
+    # Cas sans split :
     if est_blackjack_naturel(main_joueur):
         gain = int(mise * 1.5)
         print("🎯 BLACKJACK! You win 1.5× your bet 🎉\n")
-        print(f"💰 Result this round: +{gain} $\n")
+        print(f"💰 Result this round: +{gain} points\n")
         return max(0, solde + mise + gain)
 
     main_joueur, mise, solde = jouer_main_avec_options(paquet, main_joueur, solde, mise)
@@ -183,19 +220,19 @@ def jouer(solde, paquet):
 
     if score_joueur > 21:
         print("💥 You busted! You lose your bet.\n")
-        print(f"💰 Result this round: -{mise} $\n")
+        print(f"💰 Result this round: -{mise} points\n")
         return max(0, solde)
     elif score_banque > 21 or score_joueur > score_banque:
         print("🎉 You win!\n")
-        print(f"💰 Result this round: +{mise} $\n")
+        print(f"💰 Result this round: +{mise} points\n")
         return max(0, solde + mise * 2)
     elif score_joueur == score_banque:
         print("🤝 It's a tie. Your bet is returned.\n")
-        print("💰 Result this round: +0 $\n")
+        print("💰 Result this round: +0 points\n")
         return max(0, solde + mise)
     else:
         print("❌ Dealer wins. You lose your bet.\n")
-        print(f"💰 Result this round: -{mise} $\n")
+        print(f"💰 Result this round: -{mise} points\n")
         return max(0, solde)
 
 def main():
@@ -205,9 +242,9 @@ def main():
     print("- Dealer must stand on all 17s - \n")
     while solde > 0:
         solde = jouer(solde, paquet)
-        print(f"💰 Current balance: {solde} $\n")
+        print(f"💰 Current balance: {solde} points\n")
         if solde <= 0:
-            print("🪦 You're broke. Game over.\n")
+            print("💀 You're broke. Game over.\n")
             break
         if input("Do you want to play again? (y/n): ").lower() != 'y':
             print("\nThanks for playing! 👋\n")
